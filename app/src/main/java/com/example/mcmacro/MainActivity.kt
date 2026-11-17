@@ -119,7 +119,7 @@ class MainActivity : Activity() {
         val shz = try {
             when {
                 !Shizuku.pingBinder() -> "не запущен"
-                Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED -> "готов"
+                Shizuku.checkSelfPermission() == PackageManager.PERMISSION_GRANTED -> "доступен, разрешение выдано"
                 else -> "нет разрешения"
             }
         } catch (_: Throwable) {
