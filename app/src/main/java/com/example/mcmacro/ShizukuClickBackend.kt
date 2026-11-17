@@ -37,7 +37,7 @@ class ShizukuClickBackend(private val ctx: Context) : ClickBackend {
         .daemon(false)
         .processNameSuffix("input")
         .debuggable(false)
-        .version(2)
+        .version(3)
 
     private val conn = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
@@ -81,6 +81,12 @@ class ShizukuClickBackend(private val ctx: Context) : ClickBackend {
         svc?.status() ?: "сервис не запущен"
     } catch (_: Throwable) {
         "сервис не отвечает"
+    }
+
+    fun diagnose(): String = try {
+        svc?.diagnose() ?: "сервис не запущен"
+    } catch (t: Throwable) {
+        "диагностика недоступна: ${t.javaClass.simpleName}"
     }
 
     /** Передаёт сервису размер/поворот экрана и id тачскрина. */

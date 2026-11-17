@@ -70,6 +70,8 @@ class InputService() : IInputService.Stub() {
     @Volatile private var rotation = 0
     @Volatile private var deviceId = -1
     @Volatile private var lastError = ""
+    @Volatile private var taps = 0
+    @Volatile private var lastReal = -1
 
     init {
         Thread({
@@ -107,6 +109,30 @@ class InputService() : IInputService.Stub() {
         return if (t == null) "тач: $note" else "тач: ${t.name} • $mode$err"
     }
 
+    override fun diagnose(): String {
+        val sb = StringBuilder()
+        sb.append("Android ${android.os.Build.VERSION.RELEASE} (API ${android.os.Build.VERSION.SDK_INT}), ")
+            .append("${android.os.Build.MANUFACTURER} ${android.os.Build.MODEL}\n")
+        sb.append(status()).append('\n')
+        sb.append("taps=$taps realFingersAtLastTap=$lastReal deviceId=$deviceId ")
+            .append("disp=${dispW}x$dispH rot=$rotation\n")
+        val now = synchronized(lock) { realFingers() }
+        sb.append("fingersNow=").append(now.joinToString { "${it.id}@${it.x.toInt()},${it.y.toInt()}" }).append('\n')
+        try {
+            val p = ProcessBuilder("logcat", "-d", "-t", "800", "InputDispatcher:V", "*:S")
+                .redirectErrorStream(true).start()
+            val lines = p.inputStream.bufferedReader().readLines()
+            p.waitFor()
+            val re = Regex("drop|inconsist|conflict|cancel|different device|switch|ignor|no touching", RegexOption.IGNORE_CASE)
+            val hit = lines.filter { re.containsMatchIn(it) }.takeLast(10)
+            sb.append("InputDispatcher (${hit.size}):\n")
+            hit.forEach { sb.append(it.takeLast(170)).append('\n') }
+        } catch (t: Throwable) {
+            sb.append("logcat: ${t.javaClass.simpleName}\n")
+        }
+        return sb.toString()
+    }
+
     private fun isMerged(): Boolean = reading && touch != null && deviceId >= 0 && dispW > 0
 
     override fun tap(x: Float, y: Float, holdMs: Int) {
@@ -117,6 +143,8 @@ class InputService() : IInputService.Stub() {
 
         val (real1, downTime) = synchronized(lock) { realFingers() to gestureDownTime }
         val inj = freeId(real1)
+        lastReal = real1.size
+        taps++
         val t0 = SystemClock.uptimeMillis()
 
         if (real1.isEmpty()) {

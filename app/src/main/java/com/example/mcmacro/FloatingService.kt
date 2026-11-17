@@ -181,6 +181,23 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
         return moveMode
     }
 
+    override fun onDryToggle(): Boolean {
+        prefs.dryRun = !prefs.dryRun
+        toast(if (prefs.dryRun) "Тест: клики отключены, HIT только держится" else "Клики включены")
+        return prefs.dryRun
+    }
+
+    override fun onDiagnose() {
+        scope.launch {
+            val text = if (shz.isReady) shz.diagnose() else "Shizuku не готов"
+            withContext(Dispatchers.Main) {
+                val cm = getSystemService(CLIPBOARD_SERVICE) as android.content.ClipboardManager
+                cm.setPrimaryClip(android.content.ClipData.newPlainText("diag", text))
+                toast("Диагностика скопирована — вставь её в чат")
+            }
+        }
+    }
+
     override fun onExpanded() {
         if (!shz.isReady) shz.bind()
         refreshStatus()
@@ -198,6 +215,7 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
             return
         }
         when {
+            prefs.dryRun -> Unit // тест без кликов
             target() == null -> toast("Сначала задай цель (🎯)")
             !shz.isReady -> {
                 shz.bind()

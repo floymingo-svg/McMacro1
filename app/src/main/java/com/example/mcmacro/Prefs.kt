@@ -44,6 +44,11 @@ class Prefs(ctx: Context) {
         get() = sp.getBoolean("collapsed", false)
         set(v) { sp.edit().putBoolean("collapsed", v).apply() }
 
+    /** Тестовый режим: HIT держится, но клики не отправляются. */
+    var dryRun: Boolean
+        get() = sp.getBoolean("dryRun", false)
+        set(v) { sp.edit().putBoolean("dryRun", v).apply() }
+
     /** Пакет игры/клиента, который запускает кнопка «Запустить игру». */
     var gamePkg: String
         get() = sp.getString("gamePkg", "") ?: ""

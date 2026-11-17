@@ -28,6 +28,10 @@ class PanelView(ctx: Context, private val prefs: Prefs, private val host: Host) 
         fun onTargetToggle(): Boolean
         /** true — режим перемещения HIT включён */
         fun onMoveToggle(): Boolean
+        /** true — тест без кликов включён */
+        fun onDryToggle(): Boolean
+        /** Собрать диагностику и скопировать в буфер */
+        fun onDiagnose()
         /** Панель развернули — хозяин может обновить статус. */
         fun onExpanded()
         fun onClose()
@@ -170,6 +174,23 @@ class PanelView(ctx: Context, private val prefs: Prefs, private val host: Host) 
             LinearLayout.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
             ).apply { topMargin = ctx.dp(12) }
+        )
+        val dryBtn = action(if (prefs.dryRun) "🧪 Тест без кликов: ВКЛ" else "🧪 Тест без кликов: выкл", primary = false) {
+            val on = host.onDryToggle()
+            it.text = if (on) "🧪 Тест без кликов: ВКЛ" else "🧪 Тест без кликов: выкл"
+        }
+        expanded.addView(
+            dryBtn,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = ctx.dp(8) }
+        )
+        val diagBtn = action("📋 Диагностика (в буфер)", primary = false) { host.onDiagnose() }
+        expanded.addView(
+            diagBtn,
+            LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT
+            ).apply { topMargin = ctx.dp(8) }
         )
         val close = action("✕ Закрыть", primary = false) { host.onClose() }
         close.setTextColor(Ui.bad)

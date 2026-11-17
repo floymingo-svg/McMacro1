@@ -17,4 +17,7 @@ interface IInputService {
 
     // Короткий статус для панели.
     String status() = 4;
+
+    // Подробная диагностика (версия Android, пальцы, строки из logcat InputDispatcher).
+    String diagnose() = 5;
 }
