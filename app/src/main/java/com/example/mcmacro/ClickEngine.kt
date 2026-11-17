@@ -45,6 +45,7 @@ class ClickEngine(
     private suspend fun loop() {
         val backend = backendProvider()
         val (x, y) = targetProvider() ?: return
+        if (backend.isReady) backend.prepare()
         var batchStart = SystemClock.elapsedRealtime()
 
         while (currentCoroutineContext().isActive) {

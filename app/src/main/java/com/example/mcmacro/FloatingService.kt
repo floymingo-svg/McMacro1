@@ -21,6 +21,8 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 /**
  * Владеет тремя НЕЗАВИСИМЫМИ окнами оверлея:
@@ -30,8 +32,7 @@ import kotlinx.coroutines.cancel
  *
  * Каждое окно маленькое (wrap_content) и имеет флаги
  * FLAG_NOT_FOCUSABLE | FLAG_NOT_TOUCH_MODAL | FLAG_SPLIT_TOUCH.
- * Касания вне окон уходят в игру напрямую — камера работает параллельно
- * с зажатой кнопкой HIT без какого-либо проброса событий.
+ * Касания вне окон уходят в игру напрямую.
  */
 class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
 
@@ -47,7 +48,6 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
     private lateinit var wm: WindowManager
     private lateinit var prefs: Prefs
     private lateinit var engine: ClickEngine
-    private lateinit var acc: AccessibilityClickBackend
     private lateinit var shz: ShizukuClickBackend
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
@@ -56,7 +56,6 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
     private var hit: HitButtonView? = null
     private lateinit var hitLp: WindowManager.LayoutParams
     private var marker: TargetMarkerView? = null
-    private var markerLp: WindowManager.LayoutParams? = null
     private var moveMode = false
 
     override fun onBind(intent: Intent?): IBinder? = null
@@ -65,13 +64,12 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
         super.onCreate()
         wm = getSystemService(WINDOW_SERVICE) as WindowManager
         prefs = Prefs(this)
-        acc = AccessibilityClickBackend()
         shz = ShizukuClickBackend(this)
-        engine = ClickEngine(scope, { currentBackend() }, { target() }).also {
+        engine = ClickEngine(scope, { shz }, { target() }).also {
             it.cps = prefs.cps
             it.jitterPercent = prefs.jitter
         }
-        if (prefs.useShizuku) shz.bind()
+        shz.bind()
         running = true
     }
 
@@ -82,6 +80,7 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
         }
         startInForeground()
         if (panel == null) setupWindows()
+        refreshStatus()
         return START_NOT_STICKY
     }
 
@@ -96,10 +95,6 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
         scope.cancel()
         super.onDestroy()
     }
-
-    // ------------------------------------------------------------------ backend
-
-    private fun currentBackend(): ClickBackend = if (prefs.useShizuku) shz else acc
 
     private fun target(): Pair<Float, Float>? =
         if (prefs.targetX >= 0f && prefs.targetY >= 0f) prefs.targetX to prefs.targetY else null
@@ -126,22 +121,30 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
     }
 
     private fun setupWindows() {
-        val slop = ViewConfiguration.get(this).scaledTouchSlop
         val dm = resources.displayMetrics
 
-        // 1. панель
         panelLp = newLp(
             prefs.panelX, prefs.panelY,
             WindowManager.LayoutParams.WRAP_CONTENT, WindowManager.LayoutParams.WRAP_CONTENT
         )
         panel = PanelView(this, prefs, this).also { wm.addView(it, panelLp) }
 
-        // 2. кнопка HIT
-        val size = dp(84)
+        val size = dp(88)
         val hx = if (prefs.hitX >= 0) prefs.hitX else dm.widthPixels - dp(220)
         val hy = if (prefs.hitY >= 0) prefs.hitY else dm.heightPixels / 2
         hitLp = newLp(hx, hy, size, size)
         hit = HitButtonView(this, this).also { wm.addView(it, hitLp) }
+    }
+
+    // ------------------------------------------------------------------ status
+
+    /** Обновляет строки состояния в панели (binder-вызов — вне UI-потока). */
+    private fun refreshStatus() {
+        scope.launch {
+            val ok = shz.isReady
+            val info = if (ok) shz.statusText() else "Shizuku не готов"
+            withContext(Dispatchers.Main) { panel?.setStatus(ok, info) }
+        }
     }
 
     // --- PanelView.Host
@@ -178,18 +181,9 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
         return moveMode
     }
 
-    override fun onBackend(wantShizuku: Boolean): Boolean {
-        if (wantShizuku) {
-            if (shz.bind()) {
-                prefs.useShizuku = true
-            } else {
-                prefs.useShizuku = false
-                toast("Shizuku не запущен или нет разрешения — оставляю Accessibility")
-            }
-        } else {
-            prefs.useShizuku = false
-        }
-        return prefs.useShizuku
+    override fun onExpanded() {
+        if (!shz.isReady) shz.bind()
+        refreshStatus()
     }
 
     override fun onClose() {
@@ -203,11 +197,16 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
             engine.stop()
             return
         }
-        val backend = currentBackend()
         when {
             target() == null -> toast("Сначала задай цель (🎯)")
-            !backend.isReady -> toast("Метод «${backend.label}» не готов — проверь разрешения в приложении")
-            else -> engine.start()
+            !shz.isReady -> {
+                shz.bind()
+                toast("Shizuku не готов: запусти Shizuku и выдай разрешение в приложении")
+            }
+            else -> {
+                engine.start()
+                refreshStatus()
+            }
         }
     }
 
@@ -233,8 +232,7 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
         )
         wm.addView(view, lp)
         marker = view
-        markerLp = lp
-        toast("Перетащи перекрестие на точку удара и нажми «Сохранить цель»")
+        toast("Перетащи перекрестие на точку удара и нажми «Сохранить»")
     }
 
     private fun saveMarker() {
@@ -246,7 +244,6 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
         // Маркер ОБЯЗАТЕЛЬНО убираем: иначе он перехватит тапы макроса в этой точке.
         runCatching { wm.removeView(view) }
         marker = null
-        markerLp = null
         toast("Цель сохранена: ${prefs.targetX.toInt()}, ${prefs.targetY.toInt()}")
     }
 
@@ -256,7 +253,7 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
         val nm = getSystemService(NOTIFICATION_SERVICE) as NotificationManager
         if (Build.VERSION.SDK_INT >= 26) {
             nm.createNotificationChannel(
-                NotificationChannel(CHANNEL_ID, "Макрос", NotificationManager.IMPORTANCE_LOW)
+                NotificationChannel(CHANNEL_ID, "Панель", NotificationManager.IMPORTANCE_LOW)
             )
         }
         val stop = PendingIntent.getService(
@@ -265,9 +262,9 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
             PendingIntent.FLAG_IMMUTABLE
         )
         val n: Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(android.R.drawable.ic_media_play)
-            .setContentTitle("MC Macro работает")
-            .setContentText("Плавающее окно активно")
+            .setSmallIcon(R.drawable.ic_notification)
+            .setContentTitle("Vpn Xasky")
+            .setContentText("Плавающая панель активна")
             .setOngoing(true)
             .addAction(0, "Остановить", stop)
             .build()
@@ -277,5 +274,5 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
 
     private fun toast(msg: String) = Toast.makeText(this, msg, Toast.LENGTH_SHORT).show()
 
-    private fun dp(v: Int) = this.run { (v * resources.displayMetrics.density).toInt() }
+    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 }

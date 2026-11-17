@@ -2,11 +2,14 @@ package com.example.mcmacro
 
 /**
  * Способ доставки тапа в игру. Движок (ClickEngine) не знает, как именно
- * тап попадает в систему — это решает бэкенд.
+ * тап попадает в систему — это решает бэкенд (сейчас только Shizuku).
  */
 interface ClickBackend {
     val label: String
     val isReady: Boolean
+
+    /** Вызывается перед началом серии кликов (размер/поворот экрана и т.п.). */
+    suspend fun prepare() {}
 
     /** Сколько кликов бэкенд хочет получать за один вызов (батч). */
     fun batchSizeFor(cps: Int): Int

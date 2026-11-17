@@ -8,13 +8,19 @@
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
-    <!-- Чтобы видеть, установлен ли Shizuku -->
     <queries>
+        <!-- Чтобы видеть, установлен ли Shizuku -->
         <package android:name="moe.shizuku.privileged.api" />
+        <!-- Список приложений для выбора игры/клиента -->
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
     </queries>
 
     <application
         android:allowBackup="false"
+        android:icon="@mipmap/ic_launcher"
         android:label="@string/app_name"
         android:theme="@style/Theme.McMacro">
 
@@ -34,20 +40,6 @@
             <property
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="floating_overlay_macro" />
-        </service>
-
-        <!-- Инъекция тапов через dispatchGesture -->
-        <service
-            android:name=".MacroAccessibilityService"
-            android:exported="true"
-            android:label="@string/a11y_label"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
-            <meta-data
-                android:name="android.accessibilityservice"
-                android:resource="@xml/accessibility_service_config" />
         </service>
 
         <!-- Нужен Shizuku API для получения binder'а -->

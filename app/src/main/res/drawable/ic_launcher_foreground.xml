@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Щит со вырезанной молнией. evenOdd: молния — отверстие в щите. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M54,24 L78,32 L78,54 C78,68 67,78 54,84 C41,78 30,68 30,54 L30,32 Z M57,35 L43,55 L52,55 L49,71 L65,49 L56,49 Z" />
+</vector>

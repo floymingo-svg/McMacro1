@@ -40,11 +40,12 @@ class Prefs(ctx: Context) {
         get() = sp.getInt("py", 40)
         set(v) { sp.edit().putInt("py", v).apply() }
 
-    var useShizuku: Boolean
-        get() = sp.getBoolean("shizuku", false)
-        set(v) { sp.edit().putBoolean("shizuku", v).apply() }
-
     var collapsed: Boolean
         get() = sp.getBoolean("collapsed", false)
         set(v) { sp.edit().putBoolean("collapsed", v).apply() }
+
+    /** Пакет игры/клиента, который запускает кнопка «Запустить игру». */
+    var gamePkg: String
+        get() = sp.getString("gamePkg", "") ?: ""
+        set(v) { sp.edit().putString("gamePkg", v).apply() }
 }
