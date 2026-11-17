@@ -37,7 +37,7 @@ class ShizukuClickBackend(private val ctx: Context) : ClickBackend {
         .daemon(false)
         .processNameSuffix("input")
         .debuggable(false)
-        .version(3)
+        .version(4)
 
     private val conn = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, binder: IBinder?) {
@@ -93,16 +93,15 @@ class ShizukuClickBackend(private val ctx: Context) : ClickBackend {
     override suspend fun prepare() {
         val s = svc ?: return
         try {
-            if (deviceId < 0) {
-                var name = ""
-                var tries = 0
-                while (name.isEmpty() && tries < 10) {
-                    name = s.touchName() ?: ""
-                    if (name.isEmpty()) delay(150)
-                    tries++
-                }
-                deviceId = resolveDevice(name)
+            // Имя берём заново: «живой» тачскрин может определиться не сразу
+            var name = ""
+            var tries = 0
+            while (name.isEmpty() && tries < 10) {
+                name = s.touchName() ?: ""
+                if (name.isEmpty()) delay(150)
+                tries++
             }
+            deviceId = resolveDevice(name)
             val dm = DisplayMetrics()
             val display = (ctx.getSystemService(Context.DISPLAY_SERVICE) as DisplayManager)
                 .getDisplay(Display.DEFAULT_DISPLAY)
