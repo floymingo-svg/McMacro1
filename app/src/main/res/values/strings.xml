@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">MC Macro</string>
+    <string name="a11y_label">MC Macro clicker</string>
+    <string name="a11y_description">Выполняет тапы по заданной точке экрана для макроса автокликера. Содержимое экрана не считывается.</string>
+</resources>
