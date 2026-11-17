@@ -59,6 +59,16 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
     private var markerLp: WindowManager.LayoutParams? = null
     private var moveMode = false
 
+    // Keep one listener instance for the whole drag gesture. Creating a new
+    // DragTouchListener for every MotionEvent resets its DOWN coordinates,
+    // so MOVE/UP can never complete a drag.
+    private val hitMoveTouchListener: View.OnTouchListener by lazy {
+        DragTouchListener(wm, hitLp, ViewConfiguration.get(this).scaledTouchSlop, null) {
+            prefs.hitX = hitLp.x
+            prefs.hitY = hitLp.y
+        }
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -213,11 +223,7 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
 
     override fun isMoveMode(): Boolean = moveMode
 
-    override fun moveListener(): View.OnTouchListener =
-        DragTouchListener(wm, hitLp, ViewConfiguration.get(this).scaledTouchSlop, null) {
-            prefs.hitX = hitLp.x
-            prefs.hitY = hitLp.y
-        }
+    override fun moveListener(): View.OnTouchListener = hitMoveTouchListener
 
     // ------------------------------------------------------------------ target marker
 
