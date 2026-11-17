@@ -59,6 +59,16 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
     private var markerLp: WindowManager.LayoutParams? = null
     private var moveMode = false
 
+    // Keep one listener instance for the whole drag gesture. Creating a new
+    // DragTouchListener for every MotionEvent resets its DOWN coordinates,
+    // so MOVE/UP can never complete a drag.
+    private val hitMoveTouchListener: View.OnTouchListener by lazy {
+        DragTouchListener(wm, hitLp, ViewConfiguration.get(this).scaledTouchSlop, null) {
+            prefs.hitX = hitLp.x
+            prefs.hitY = hitLp.y
+        }
+    }
+
     override fun onBind(intent: Intent?): IBinder? = null
 
     override fun onCreate() {
@@ -213,11 +223,7 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
 
     override fun isMoveMode(): Boolean = moveMode
 
-    override fun moveListener(): View.OnTouchListener =
-        DragTouchListener(wm, hitLp, ViewConfiguration.get(this).scaledTouchSlop, null) {
-            prefs.hitX = hitLp.x
-            prefs.hitY = hitLp.y
-        }
+    override fun moveListener(): View.OnTouchListener = hitMoveTouchListener
 
     // ------------------------------------------------------------------ target marker
 
@@ -239,15 +245,27 @@ class FloatingService : Service(), PanelView.Host, HitButtonView.Host {
 
     private fun saveMarker() {
         val view = marker ?: return
-        val loc = IntArray(2)
-        view.getLocationOnScreen(loc)
-        prefs.targetX = loc[0] + view.width / 2f
-        prefs.targetY = loc[1] + view.height / 2f
-        // Маркер ОБЯЗАТЕЛЬНО убираем: иначе он перехватит тапы макроса в этой точке.
+        val lp = markerLp
+        if (lp == null || view.width <= 0 || view.height <= 0) {
+            toast("Не удалось сохранить цель: маркер ещё не готов")
+            return
+        }
+
+        // Окно маркера создаётся с TOP|START и FLAG_LAYOUT_IN_SCREEN.
+        // Поэтому сохраняем координаты из тех же LayoutParams, которые
+        // перемещает DragTouchListener, а не координаты View из другого
+        // пространства отсчёта (getLocationOnScreen).
+        val dm = resources.displayMetrics
+        val centerX = (lp.x + view.width / 2).coerceIn(0, dm.widthPixels - 1)
+        val centerY = (lp.y + view.height / 2).coerceIn(0, dm.heightPixels - 1)
+        prefs.targetX = centerX.toFloat()
+        prefs.targetY = centerY.toFloat()
+
+        // Убираем маркер после сохранения, чтобы он не перекрывал экран.
         runCatching { wm.removeView(view) }
         marker = null
         markerLp = null
-        toast("Цель сохранена: ${prefs.targetX.toInt()}, ${prefs.targetY.toInt()}")
+        toast("Цель сохранена: $centerX, $centerY")
     }
 
     // ------------------------------------------------------------------ notification
